@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Be.BlogManagementAssignment.Api/Be.BlogManagementAssignment.Api.csproj" />
+  <Project Path="Be.BlogManagementAssignment.Application/Be.BlogManagementAssignment.Application.csproj" />
+  <Project Path="Be.BlogManagementAssignment.Domain/Be.BlogManagementAssignment.Domain.csproj" />
+  <Project Path="Be.BlogManagementAssignment.Infrastructure/Be.BlogManagementAssignment.Infrastructure.csproj" />
+</Solution>

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "dgSpecHash": "LEnYwt2kqwQ=",
+  "success": true,
+  "projectFilePath": "D:\\BlogHub\\BlogManagementAssignment\\Be.BlogManagementAssignment.Application\\Be.BlogManagementAssignment.Application.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\pcq112\\.nuget\\packages\\bcrypt.net-next\\4.2.0\\bcrypt.net-next.4.2.0.nupkg.sha512",
+    "C:\\Users\\pcq112\\.nuget\\packages\\fluentvalidation\\11.11.0\\fluentvalidation.11.11.0.nupkg.sha512",
+    "C:\\Users\\pcq112\\.nuget\\packages\\fluentvalidation.aspnetcore\\11.3.1\\fluentvalidation.aspnetcore.11.3.1.nupkg.sha512",
+    "C:\\Users\\pcq112\\.nuget\\packages\\fluentvalidation.dependencyinjectionextensions\\11.11.0\\fluentvalidation.dependencyinjectionextensions.11.11.0.nupkg.sha512",
+    "C:\\Users\\pcq112\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\2.1.0\\microsoft.extensions.dependencyinjection.abstractions.2.1.0.nupkg.sha512"
+  ],
+  "logs": []
+}
