@@ -40,6 +40,7 @@ public sealed class GetBlogsEndPoint : IMinimalEndPoint
                 string? sortBy = null,
                 bool sortDesc = true,
                 int? categoryId = null,
+                Guid? authorId = null,
                 CancellationToken cancellationToken = default) =>
             {
                 var role   = httpContext.User.FindFirst("Role")?.Value;
@@ -47,7 +48,7 @@ public sealed class GetBlogsEndPoint : IMinimalEndPoint
 
                 var result = await blogService.GetBlogsAsync(
                     role, userId, slug, status, search, mine,
-                    pageNumber, pageSize, sortBy, sortDesc, categoryId,
+                    pageNumber, pageSize, sortBy, sortDesc, categoryId,authorId,
                     cancellationToken);
 
                 return Results.Ok(result);

@@ -12,6 +12,7 @@ public interface IBlogRepository
         string? search,
         BlogStatus? status,
         int? categoryId,
+        Guid? authorId,
         string? sortBy,
         bool sortDesc,
         CancellationToken cancellationToken = default);
@@ -33,6 +34,7 @@ public interface IBlogRepository
         int pageSize,
         string? search,
         BlogStatus? status,
+        int? categoryId,
         string? sortBy,
         bool sortDesc,
         CancellationToken cancellationToken = default);

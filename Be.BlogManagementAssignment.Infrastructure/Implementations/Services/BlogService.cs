@@ -29,8 +29,13 @@ public sealed class BlogService : IBlogService
         _logger = logger;
     }
 
-    // ── GET /api/blogs ───────────────────────────────────────────────────────
+    private static bool HasRole(string? role, UserRole requiredRole)
+    {
+        return Enum.TryParse<UserRole>(role, true, out var parsedRole)
+               && parsedRole == requiredRole;
+    }
 
+    // ── GET /api/blogs ───────────────────────────────────────────────────────
     public async Task<GetBlogsResponse> GetBlogsAsync(
         string? role,
         string? userId,
@@ -43,6 +48,7 @@ public sealed class BlogService : IBlogService
         string? sortBy,
         bool sortDesc,
         int? categoryId,
+        Guid? authorId,
         CancellationToken cancellationToken = default)
     {
         (pageNumber, pageSize) = Paginate(pageNumber, pageSize);
@@ -53,30 +59,45 @@ public sealed class BlogService : IBlogService
             if (bySlug is null)
                 return EmptyListResponse("No blog found with the given slug.");
 
-            if (role != "Admin" && bySlug.Status != BlogStatus.Published)
+            if (!HasRole(role, UserRole.Admin) && bySlug.Status != BlogStatus.Published)
             {
-                if (role != "Author" || !Guid.TryParse(userId, out var callerId) || bySlug.AuthorId != callerId)
+                if (!HasRole(role, UserRole.Author) || !Guid.TryParse(userId, out var callerId) || bySlug.AuthorId != callerId)
                     return EmptyListResponse("No blog found with the given slug.");
             }
 
             return BuildListResponse("Blog retrieved by slug.", [bySlug], 1, 1, 1);
         }
 
-        if (role == "Admin")
+        if (HasRole(role, UserRole.Admin))
         {
             var (items, total) = await _blogRepository.GetAllAsync(
-                pageNumber, pageSize, search, status, categoryId, sortBy, sortDesc, cancellationToken);
+                pageNumber, pageSize, search, status, categoryId, authorId, sortBy, sortDesc, cancellationToken);
             return BuildListResponse("Blogs retrieved successfully.", items, total, pageNumber, pageSize);
         }
 
-        if (role == "Author" && Guid.TryParse(userId, out var authorId))
+        if (HasRole(role, UserRole.Author) && Guid.TryParse(userId, out var currentAuthorId))
         {
             bool showMine = mine ?? true;
+
             if (showMine)
             {
                 var (items, total) = await _blogRepository.GetByAuthorAsync(
-                    authorId, pageNumber, pageSize, search, status, sortBy, sortDesc, cancellationToken);
-                return BuildListResponse("Blogs retrieved successfully.", items, total, pageNumber, pageSize);
+                    currentAuthorId,
+                    pageNumber,
+                    pageSize,
+                    search,
+                    status,
+                    categoryId,
+                    sortBy,
+                    sortDesc,
+                    cancellationToken);
+
+                return BuildListResponse(
+                    "Blogs retrieved successfully.",
+                    items,
+                    total,
+                    pageNumber,
+                    pageSize);
             }
         }
 
@@ -88,7 +109,6 @@ public sealed class BlogService : IBlogService
     }
 
     // ── GET /api/blogs/{id} ──────────────────────────────────────────────────
-
     public async Task<GetBlogByIdResponse> GetBlogByIdAsync(
         Guid blogId,
         string? role,
@@ -98,10 +118,10 @@ public sealed class BlogService : IBlogService
         var blog = await _blogRepository.GetByIdAsync(blogId, cancellationToken)
             ?? throw new NotFoundException($"Blog with id {blogId} was not found.");
 
-        if (role == "Admin")
+        if (HasRole(role, UserRole.Admin))
             return OkBlogByIdResponse(blog);
 
-        if (role == "Author" && Guid.TryParse(userId, out var authorId))
+        if (HasRole(role, UserRole.Author) && Guid.TryParse(userId, out var authorId))
         {
             if (blog.AuthorId != authorId)
                 throw new AppException("You are not authorized to view this blog.", 403);
@@ -115,7 +135,6 @@ public sealed class BlogService : IBlogService
     }
 
     // ── POST /api/blogs ──────────────────────────────────────────────────────
-
     public async Task<CreateBlogResponse> CreateAsync(
         CreateBlogRequest request,
         Guid authorId,
@@ -126,41 +145,41 @@ public sealed class BlogService : IBlogService
         if (await _blogRepository.ExistsBySlugAsync(slug, cancellationToken: cancellationToken))
             throw new ConflictException($"A blog with the slug '{slug}' already exists.");
 
-        var category = await _categoryRepository.GetByIdAsync(request.CategoryId, cancellationToken)
-            ?? throw new NotFoundException($"Category with id {request.CategoryId} was not found.");
-
-        if (!category.IsActive)
-            throw new AppException("The selected category is not active.", 400);
+        // Validate all requested categories (Business layer checks: existence & active status)
+        var categories = await ValidateCategoriesAsync(request.CategoryIds, cancellationToken);
 
         var blog = new Blog
         {
-            Title            = request.Title.Trim(),
-            Slug             = slug,
+            Title = request.Title.Trim(),
+            Slug = slug,
             ShortDescription = request.ShortDescription?.Trim(),
-            Content          = request.Content.Trim(),
-            ThumbnailUrl     = request.ThumbnailUrl?.Trim(),
-            Status           = BlogStatus.PendingApproval,
-            CategoryId       = request.CategoryId,
-            AuthorId         = authorId,
-            CreatedAt        = DateTime.UtcNow
+            Content = request.Content.Trim(),
+            ThumbnailUrl = request.ThumbnailUrl?.Trim(),
+            Status = request.Status,
+            AuthorId = authorId,
+            CreatedAt = DateTime.UtcNow,
+            BlogCategories = request.CategoryIds
+                .Select(cid => new BlogCategory { CategoryId = cid })
+                .ToList()
         };
 
         var created = await _blogRepository.CreateAsync(blog, cancellationToken);
-        created.Category = category;
+
+        // Attach category names for the response DTO (avoid extra DB round-trip)
+        foreach (var bc in created.BlogCategories)
+            bc.Category = categories.First(c => c.Id == bc.CategoryId);
 
         _logger.LogInformation("Blog created: {Title} (id={Id}) by author {AuthorId}", created.Title, created.Id, authorId);
 
         return new CreateBlogResponse
         {
-            Status  = true,
+            Status = true,
             Message = "Blog created successfully.",
-            Data    = MapToCreateBlogDto(created)
+            Data = MapToCreateBlogDto(created)
         };
     }
 
     // ── PUT /api/blogs/{id} ──────────────────────────────────────────────────
-
-    /// <inheritdoc />
     public async Task<UpdateBlogResponse> UpdateBlogAsync(
         Guid blogId,
         UpdateBlogRequest request,
@@ -172,9 +191,9 @@ public sealed class BlogService : IBlogService
             ?? throw new NotFoundException($"Blog with id {blogId} was not found.");
 
         // Authors may only edit their own blogs; Admins may edit any
-        if (role != "Admin")
+        if (!HasRole(role, UserRole.Admin))
         {
-            if (role != "Author" || !Guid.TryParse(userId, out var authorId) || existing.AuthorId != authorId)
+            if (!HasRole(role, UserRole.Author) || !Guid.TryParse(userId, out var authorId) || existing.AuthorId != authorId)
                 throw new AppException("You are not authorized to update this blog.", 403);
         }
 
@@ -183,22 +202,41 @@ public sealed class BlogService : IBlogService
             throw new AppException("Only Draft or Rejected blogs can be updated.", 400);
 
         await ApplyContentUpdatesAsync(existing, request, cancellationToken);
+
+        // Allow Author to submit a Draft blog for approval in the same PUT request.
+        if (request.Status.HasValue)
+        {
+            if (request.Status.Value == BlogStatus.PendingApproval
+                && HasRole(role, UserRole.Author)
+                && existing.Status == BlogStatus.Draft)
+            {
+                existing.Status = BlogStatus.PendingApproval;
+            }
+            else if (request.Status.Value != existing.Status)
+            {
+                throw new AppException(
+                    "Authors may only submit a Draft for approval. Use PATCH /status for other transitions.", 400);
+            }
+        }
+
         existing.UpdatedAt = DateTime.UtcNow;
 
         await _blogRepository.UpdateAsync(existing, cancellationToken);
-        _logger.LogInformation("Blog updated: {Id}", existing.Id);
+        _logger.LogInformation("Blog updated: {Id} (status={Status})", existing.Id, existing.Status);
+
+        var message = existing.Status == BlogStatus.PendingApproval
+            ? "Blog submitted for approval successfully."
+            : "Blog updated successfully.";
 
         return new UpdateBlogResponse
         {
-            Status  = true,
-            Message = "Blog updated successfully.",
-            Data    = MapToUpdateBlogDto(existing)
+            Status = true,
+            Message = message,
+            Data = MapToUpdateBlogDto(existing)
         };
     }
 
     // ── PATCH /api/blogs/{id}/status ─────────────────────────────────────────
-
-    /// <inheritdoc />
     public async Task<UpdateBlogStatusResponse> UpdateBlogStatusAsync(
         Guid blogId,
         UpdateBlogStatusRequest request,
@@ -213,14 +251,13 @@ public sealed class BlogService : IBlogService
         return request.Status switch
         {
             BlogStatus.Published => await HandleApproveAsync(existing, cancellationToken),
-            BlogStatus.Rejected  => await HandleRejectAsync(existing, request, cancellationToken),
-            _                    => throw new AppException(
+            BlogStatus.Rejected => await HandleRejectAsync(existing, request, cancellationToken),
+            _ => throw new AppException(
                 $"Status must be Published (approve) or Rejected (reject). Got '{request.Status}'.", 400)
         };
     }
 
     // ── DELETE /api/blogs/{id} ───────────────────────────────────────────────
-
     public async Task<DeleteBlogResponse> DeleteBlogAsync(
         Guid blogId,
         string? role,
@@ -230,14 +267,14 @@ public sealed class BlogService : IBlogService
         var existing = await _blogRepository.GetByIdAsync(blogId, cancellationToken)
             ?? throw new NotFoundException($"Blog with id {blogId} was not found.");
 
-        if (role == "Admin")
+        if (HasRole(role, UserRole.Admin))
         {
             await _blogRepository.DeleteAsync(blogId, cancellationToken);
             _logger.LogInformation("Blog deleted by admin: {Title} (id={Id})", existing.Title, blogId);
             return new DeleteBlogResponse { Status = true, Message = "Blog deleted successfully." };
         }
 
-        if (role == "Author" && Guid.TryParse(userId, out var authorId))
+        if (HasRole(role, UserRole.Author) && Guid.TryParse(userId, out var authorId))
         {
             if (existing.AuthorId != authorId)
                 throw new AppException("You are not authorized to delete this blog.", 403);
@@ -251,16 +288,15 @@ public sealed class BlogService : IBlogService
     }
 
     // ── Private status transition handlers ───────────────────────────────────
-
     private async Task<UpdateBlogStatusResponse> HandleApproveAsync(Blog existing, CancellationToken ct)
     {
         if (existing.Status != BlogStatus.PendingApproval)
             throw new AppException("Only PendingApproval blogs can be approved.", 400);
 
-        existing.Status          = BlogStatus.Published;
+        existing.Status = BlogStatus.Published;
         existing.RejectionReason = null;
-        existing.PublishedAt     = DateTime.UtcNow;
-        existing.UpdatedAt       = DateTime.UtcNow;
+        existing.PublishedAt = DateTime.UtcNow;
+        existing.UpdatedAt = DateTime.UtcNow;
 
         await _blogRepository.UpdateAsync(existing, ct);
         _logger.LogInformation("Blog approved and published: {Id}", existing.Id);
@@ -279,9 +315,9 @@ public sealed class BlogService : IBlogService
         if (string.IsNullOrWhiteSpace(request.RejectionReason))
             throw new AppException("RejectionReason is required when rejecting a blog.", 400);
 
-        existing.Status          = BlogStatus.Rejected;
+        existing.Status = BlogStatus.Rejected;
         existing.RejectionReason = request.RejectionReason.Trim();
-        existing.UpdatedAt       = DateTime.UtcNow;
+        existing.UpdatedAt = DateTime.UtcNow;
 
         await _blogRepository.UpdateAsync(existing, ct);
         _logger.LogInformation("Blog rejected: {Id}. Reason: {Reason}", existing.Id, existing.RejectionReason);
@@ -290,13 +326,12 @@ public sealed class BlogService : IBlogService
     }
 
     // ── Shared content update helper ─────────────────────────────────────────
-
     private async Task ApplyContentUpdatesAsync(Blog existing, UpdateBlogRequest request, CancellationToken ct)
     {
-        if (request.Title is not null)            existing.Title            = request.Title.Trim();
+        if (request.Title is not null) existing.Title = request.Title.Trim();
         if (request.ShortDescription is not null) existing.ShortDescription = request.ShortDescription.Trim();
-        if (request.Content is not null)          existing.Content          = request.Content.Trim();
-        if (request.ThumbnailUrl is not null)     existing.ThumbnailUrl     = request.ThumbnailUrl.Trim();
+        if (request.Content is not null) existing.Content = request.Content.Trim();
+        if (request.ThumbnailUrl is not null) existing.ThumbnailUrl = request.ThumbnailUrl.Trim();
 
         if (request.Slug is not null)
         {
@@ -306,35 +341,64 @@ public sealed class BlogService : IBlogService
             existing.Slug = slug;
         }
 
-        if (request.CategoryId.HasValue)
+        if (request.CategoryIds is { Count: > 0 })
         {
-            var category = await _categoryRepository.GetByIdAsync(request.CategoryId.Value, ct)
-                ?? throw new NotFoundException($"Category with id {request.CategoryId.Value} was not found.");
-            if (!category.IsActive)
-                throw new AppException("The selected category is not active.", 400);
-            existing.CategoryId = request.CategoryId.Value;
+            var categories = await ValidateCategoriesAsync(request.CategoryIds, ct);
+
+            existing.BlogCategories = request.CategoryIds
+                .Select(cid => new BlogCategory
+                {
+                    BlogId = existing.Id,
+                    CategoryId = cid,
+                    Category = categories.First(c => c.Id == cid)
+                })
+                .ToList();
         }
     }
 
-    // ── Guard helpers ────────────────────────────────────────────────────────
+    // ── Category validation helper ────────────────────────────────────────────
+    private async Task<List<Category>> ValidateCategoriesAsync(
+        List<int> categoryIds,
+        CancellationToken ct)
+    {
+        var uniqueIds = categoryIds.Distinct().ToList();
+        var categories = new List<Category>(uniqueIds.Count);
 
+        foreach (var cid in uniqueIds)
+        {
+            var category = await _categoryRepository.GetByIdAsync(cid, ct)
+                ?? throw new NotFoundException($"Category with id {cid} was not found.");
+
+            if (!category.IsActive)
+                throw new AppException($"Category '{category.Name}' (id={cid}) is not active.", 400);
+
+            categories.Add(category);
+        }
+
+        return categories;
+    }
+
+    // ── Guard helpers ────────────────────────────────────────────────────────
     private static void AssertIsAdmin(string? role, string action)
     {
-        if (role != "Admin")
+        if (!HasRole(role, UserRole.Admin))
             throw new AppException($"Only Admins are allowed to {action}.", 403);
     }
 
     // ── Pagination ───────────────────────────────────────────────────────────
-
     private static (int pageNumber, int pageSize) Paginate(int pageNumber, int pageSize) =>
         (pageNumber < 1 ? 1 : pageNumber,
-         pageSize   < 1 ? 10 : pageSize > 100 ? 100 : pageSize);
+         pageSize < 1 ? 10 : pageSize > 100 ? 100 : pageSize);
 
     // ── Response builders ────────────────────────────────────────────────────
-
     private static GetBlogsResponse EmptyListResponse(string message) => new()
     {
-        Status = false, Message = message, Items = [], TotalCount = 0, PageNumber = 1, PageSize = 0
+        Status = false,
+        Message = message,
+        Items = [],
+        TotalCount = 0,
+        PageNumber = 1,
+        PageSize = 0
     };
 
     private static GetBlogsResponse BuildListResponse(
@@ -343,116 +407,124 @@ public sealed class BlogService : IBlogService
         int totalCount,
         int pageNumber,
         int pageSize) => new()
-    {
-        Status     = true,
-        Message    = message,
-        Items      = items.Select(MapToBlogListItemDto),
-        TotalCount = totalCount,
-        PageNumber = pageNumber,
-        PageSize   = pageSize
-    };
+        {
+            Status = true,
+            Message = message,
+            Items = items.Select(MapToBlogListItemDto),
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
 
     private static GetBlogByIdResponse OkBlogByIdResponse(Blog b) => new()
     {
-        Status  = true,
+        Status = true,
         Message = "Blog retrieved successfully.",
-        Data    = MapToGetBlogByIdDto(b)
+        Data = MapToGetBlogByIdDto(b)
     };
 
     private static UpdateBlogStatusResponse OkStatusResponse(string message, Blog b) => new()
     {
-        Status  = true,
+        Status = true,
         Message = message,
-        Data    = MapToUpdateBlogStatusDto(b)
+        Data = MapToUpdateBlogStatusDto(b)
     };
 
     // ── Mappers ──────────────────────────────────────────────────────────────
-
     private static string? GetAuthorName(Blog b) =>
         b.Author != null ? $"{b.Author.FirstName} {b.Author.LastName}".Trim() : null;
 
+    private static List<int> GetCategoryIds(Blog b) =>
+        b.BlogCategories.Select(bc => bc.CategoryId).ToList();
+
+    private static List<string> GetCategoryNames(Blog b) =>
+        b.BlogCategories
+            .Where(bc => bc.Category != null)
+            .Select(bc => bc.Category.Name)
+            .ToList();
+
     private static BlogListItemDto MapToBlogListItemDto(Blog b) => new()
     {
-        Id               = b.Id,
-        Title            = b.Title,
-        Slug             = b.Slug,
+        Id = b.Id,
+        Title = b.Title,
+        Slug = b.Slug,
         ShortDescription = b.ShortDescription,
-        Content          = b.Content,
-        ThumbnailUrl     = b.ThumbnailUrl,
-        Status           = b.Status.ToString(),
-        RejectionReason  = b.RejectionReason,
-        CategoryId       = b.CategoryId,
-        CategoryName     = b.Category?.Name,
-        AuthorId         = b.AuthorId,
-        AuthorName       = GetAuthorName(b),
-        CreatedAt        = b.CreatedAt,
-        UpdatedAt        = b.UpdatedAt,
-        PublishedAt      = b.PublishedAt
+        Content = b.Content,
+        ThumbnailUrl = b.ThumbnailUrl,
+        Status = b.Status.ToString(),
+        RejectionReason = b.RejectionReason,
+        CategoryIds = GetCategoryIds(b),
+        CategoryNames = GetCategoryNames(b),
+        AuthorId = b.AuthorId,
+        AuthorName = GetAuthorName(b),
+        CreatedAt = b.CreatedAt,
+        UpdatedAt = b.UpdatedAt,
+        PublishedAt = b.PublishedAt
     };
 
     private static GetBlogByIdDto MapToGetBlogByIdDto(Blog b) => new()
     {
-        Id               = b.Id,
-        Title            = b.Title,
-        Slug             = b.Slug,
+        Id = b.Id,
+        Title = b.Title,
+        Slug = b.Slug,
         ShortDescription = b.ShortDescription,
-        Content          = b.Content,
-        ThumbnailUrl     = b.ThumbnailUrl,
-        Status           = b.Status.ToString(),
-        RejectionReason  = b.RejectionReason,
-        CategoryId       = b.CategoryId,
-        CategoryName     = b.Category?.Name,
-        AuthorId         = b.AuthorId,
-        AuthorName       = GetAuthorName(b),
-        CreatedAt        = b.CreatedAt,
-        UpdatedAt        = b.UpdatedAt,
-        PublishedAt      = b.PublishedAt
+        Content = b.Content,
+        ThumbnailUrl = b.ThumbnailUrl,
+        Status = b.Status.ToString(),
+        RejectionReason = b.RejectionReason,
+        CategoryIds = GetCategoryIds(b),
+        CategoryNames = GetCategoryNames(b),
+        AuthorId = b.AuthorId,
+        AuthorName = GetAuthorName(b),
+        CreatedAt = b.CreatedAt,
+        UpdatedAt = b.UpdatedAt,
+        PublishedAt = b.PublishedAt
     };
 
     private static CreateBlogDto MapToCreateBlogDto(Blog b) => new()
     {
-        Id               = b.Id,
-        Title            = b.Title,
-        Slug             = b.Slug,
+        Id = b.Id,
+        Title = b.Title,
+        Slug = b.Slug,
         ShortDescription = b.ShortDescription,
-        Content          = b.Content,
-        ThumbnailUrl     = b.ThumbnailUrl,
-        Status           = (int)b.Status,
-        CategoryId       = b.CategoryId,
-        CategoryName     = b.Category?.Name,
-        AuthorId         = b.AuthorId,
-        AuthorName       = GetAuthorName(b),
-        CreatedAt        = b.CreatedAt,
-        UpdatedAt        = b.UpdatedAt,
-        PublishedAt      = b.PublishedAt
+        Content = b.Content,
+        ThumbnailUrl = b.ThumbnailUrl,
+        Status = (int)b.Status,
+        CategoryIds = GetCategoryIds(b),
+        CategoryNames = GetCategoryNames(b),
+        AuthorId = b.AuthorId,
+        AuthorName = GetAuthorName(b),
+        CreatedAt = b.CreatedAt,
+        UpdatedAt = b.UpdatedAt,
+        PublishedAt = b.PublishedAt
     };
 
     private static UpdateBlogDto MapToUpdateBlogDto(Blog b) => new()
     {
-        Id               = b.Id,
-        Title            = b.Title,
-        Slug             = b.Slug,
+        Id = b.Id,
+        Title = b.Title,
+        Slug = b.Slug,
         ShortDescription = b.ShortDescription,
-        Content          = b.Content,
-        ThumbnailUrl     = b.ThumbnailUrl,
-        Status           = b.Status.ToString(),
-        RejectionReason  = b.RejectionReason,
-        CategoryId       = b.CategoryId,
-        CategoryName     = b.Category?.Name,
-        AuthorId         = b.AuthorId,
-        AuthorName       = GetAuthorName(b),
-        CreatedAt        = b.CreatedAt,
-        UpdatedAt        = b.UpdatedAt,
-        PublishedAt      = b.PublishedAt
+        Content = b.Content,
+        ThumbnailUrl = b.ThumbnailUrl,
+        Status = b.Status.ToString(),
+        RejectionReason = b.RejectionReason,
+        CategoryIds = GetCategoryIds(b),
+        CategoryNames = GetCategoryNames(b),
+        AuthorId = b.AuthorId,
+        AuthorName = GetAuthorName(b),
+        CreatedAt = b.CreatedAt,
+        UpdatedAt = b.UpdatedAt,
+        PublishedAt = b.PublishedAt
     };
 
     private static UpdateBlogStatusDto MapToUpdateBlogStatusDto(Blog b) => new()
     {
-        Id              = b.Id,
-        Title           = b.Title,
-        Status          = b.Status.ToString(),
+        Id = b.Id,
+        Title = b.Title,
+        Status = b.Status.ToString(),
         RejectionReason = b.RejectionReason,
-        PublishedAt     = b.PublishedAt,
-        UpdatedAt       = b.UpdatedAt
+        PublishedAt = b.PublishedAt,
+        UpdatedAt = b.UpdatedAt
     };
 }

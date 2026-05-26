@@ -16,9 +16,10 @@ public sealed class GetAllCategoriesEndPoint : IMinimalEndPoint
                 ICategoryService categoryService,
                 int pageNumber = 1,
                 int pageSize = 10,
-                string? search = null) =>
+                string? search = null,
+                bool? IsActive = null) =>
             {
-                var result = await categoryService.GetAllAsync(pageNumber, pageSize, search);
+                var result = await categoryService.GetAllAsync(pageNumber, pageSize, search, IsActive);
                 return Results.Ok(result);
             })
             .WithName("getAllCategories")

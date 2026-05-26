@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Be.BlogManagementAssignment.Infrastructure.Implementations.Repositories;
 
 /// <summary>
-/// EF Core implementation of <see cref="ICategoryRepository"/>.
+/// EF Core + PostgreSQL implementation of <see cref="ICategoryRepository"/>.
 /// </summary>
 public sealed class CategoryRepository : ICategoryRepository
 {
@@ -19,48 +19,60 @@ public sealed class CategoryRepository : ICategoryRepository
     }
 
     /// <inheritdoc />
-    public async Task<(IEnumerable<Category> Items, int TotalCount)> GetAllAsync(
+    public async Task<(IEnumerable<Category> Items, int TotalCount, int ActiveCount, int InactiveCount)> GetAllAsync(
         int pageNumber,
         int pageSize,
         string? search,
+        bool? isActive,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.Categories.AsNoTracking();
+        // ── Base query with optional search filter ─────────────────────────
+        var baseQuery = _context.Categories.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim().ToLowerInvariant();
-            query = query.Where(c => c.Name.ToLower().Contains(term));
+            var term = search.Trim();
+
+            // PostgreSQL case-insensitive search
+            baseQuery = baseQuery.Where(c =>
+                EF.Functions.ILike(c.Name, $"%{term}%"));
         }
 
-        int totalCount = await query.CountAsync(cancellationToken);
+        // ── Global counts (NOT affected by isActive filter) ────────────────
+        int activeCount = await baseQuery
+            .CountAsync(c => c.IsActive, cancellationToken);
 
-        var items = await query
+        int inactiveCount = await baseQuery
+            .CountAsync(c => !c.IsActive, cancellationToken);
+
+        int totalCount = activeCount + inactiveCount;
+
+        // ── Apply status filter ONLY for displayed items ───────────────────
+        var filteredQuery = isActive.HasValue
+            ? baseQuery.Where(c => c.IsActive == isActive.Value)
+            : baseQuery;
+
+        // ── Paginated page items ───────────────────────────────────────────
+        var items = await filteredQuery
             .OrderByDescending(c => c.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        return (items, totalCount);
+        return (items, totalCount, activeCount, inactiveCount);
     }
 
     /// <inheritdoc />
-    public Task<Category?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    public Task<Category?> GetByIdAsync(
+        int id,
+        CancellationToken cancellationToken = default)
         => _context.Categories
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
 
     /// <inheritdoc />
-    public Task<IEnumerable<Category>> GetActiveAsync(CancellationToken cancellationToken = default)
-        => Task.FromResult<IEnumerable<Category>>(
-            _context.Categories
-                .AsNoTracking()
-                .Where(c => c.IsActive)
-                .OrderBy(c => c.Name)
-                .AsEnumerable());
-
-    // Use an async version for the active list so it properly awaits EF
-    public async Task<IEnumerable<Category>> GetActiveAsyncReal(CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Category>> GetActiveAsync(
+        CancellationToken cancellationToken = default)
         => await _context.Categories
             .AsNoTracking()
             .Where(c => c.IsActive)
@@ -68,49 +80,71 @@ public sealed class CategoryRepository : ICategoryRepository
             .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
-    public Task<bool> ExistsByNameAsync(string name, int? excludeId = null, CancellationToken cancellationToken = default)
+    public Task<bool> ExistsByNameAsync(
+        string name,
+        int? excludeId = null,
+        CancellationToken cancellationToken = default)
     {
         var lower = name.Trim().ToLowerInvariant();
+
         return _context.Categories.AnyAsync(
-            c => c.Name.ToLower() == lower && (excludeId == null || c.Id != excludeId),
+            c => c.Name.ToLower() == lower &&
+                 (excludeId == null || c.Id != excludeId),
             cancellationToken);
     }
 
     /// <inheritdoc />
-    public Task<bool> ExistsBySlugAsync(string slug, int? excludeId = null, CancellationToken cancellationToken = default)
+    public Task<bool> ExistsBySlugAsync(
+        string slug,
+        int? excludeId = null,
+        CancellationToken cancellationToken = default)
     {
         var lower = slug.Trim().ToLowerInvariant();
+
         return _context.Categories.AnyAsync(
-            c => c.Slug.ToLower() == lower && (excludeId == null || c.Id != excludeId),
+            c => c.Slug.ToLower() == lower &&
+                 (excludeId == null || c.Id != excludeId),
             cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<Category> CreateAsync(Category category, CancellationToken cancellationToken = default)
+    public async Task<Category> CreateAsync(
+        Category category,
+        CancellationToken cancellationToken = default)
     {
         _context.Categories.Add(category);
+
         await _context.SaveChangesAsync(cancellationToken);
+
         return category;
     }
 
     /// <inheritdoc />
-    public async Task UpdateAsync(Category category, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(
+        Category category,
+        CancellationToken cancellationToken = default)
     {
         _context.Categories.Update(category);
+
         await _context.SaveChangesAsync(cancellationToken);
     }
-
+    /// <inheritdoc />
+    public async Task<bool> HasBlogsAsync(
+        int categoryId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.BlogCategories
+            .AnyAsync(bc => bc.CategoryId == categoryId, cancellationToken);
+    }
+    /// <inheritdoc />
     /// <inheritdoc />
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         var category = await _context.Categories.FindAsync([id], cancellationToken)
             ?? throw new NotFoundException($"Category with id {id} was not found.");
 
-        var hasBlogs = await _context.Blogs.AnyAsync(b => b.CategoryId == id, cancellationToken);
-        if (hasBlogs)
-            throw new AppException("Cannot delete a category that has blogs assigned to it.", 409);
-
         _context.Categories.Remove(category);
+
         await _context.SaveChangesAsync(cancellationToken);
     }
 }

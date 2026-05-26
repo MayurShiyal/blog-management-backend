@@ -13,6 +13,7 @@ public interface ICategoryService
         int pageNumber,
         int pageSize,
         string? search,
+        bool? isActive,
         CancellationToken cancellationToken = default);
 
     Task<GetCategoryByIdResponse> GetByIdAsync(int id, CancellationToken cancellationToken = default);

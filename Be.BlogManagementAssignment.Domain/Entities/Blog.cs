@@ -18,14 +18,13 @@ public class Blog : BaseEntity
 
     public string? RejectionReason { get; set; }
 
-    public int CategoryId { get; set; }
-
     public Guid AuthorId { get; set; }
 
     public DateTime? PublishedAt { get; set; }
 
     // Navigation properties
-    public Category Category { get; set; } = default!;
-
     public User Author { get; set; } = default!;
+
+    /// <summary>Many-to-many: a blog can belong to multiple categories.</summary>
+    public ICollection<BlogCategory> BlogCategories { get; set; } = new List<BlogCategory>();
 }

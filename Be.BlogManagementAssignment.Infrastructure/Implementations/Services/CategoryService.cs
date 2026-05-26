@@ -29,13 +29,14 @@ public sealed class CategoryService : ICategoryService
         int pageNumber,
         int pageSize,
         string? search,
+        bool? isActive,
         CancellationToken cancellationToken = default)
     {
         pageNumber = pageNumber < 1 ? 1 : pageNumber;
         pageSize = pageSize < 1 ? 10 : (pageSize > 100 ? 100 : pageSize);
 
-        var (items, totalCount) = await _categoryRepository.GetAllAsync(
-            pageNumber, pageSize, search, cancellationToken);
+        var (items, totalCount, activeCount, inactiveCount) = await _categoryRepository.GetAllAsync(
+            pageNumber, pageSize, search, isActive, cancellationToken);
 
         return new GetAllCategoriesResponse
         {
@@ -44,7 +45,9 @@ public sealed class CategoryService : ICategoryService
             Items = items.Select(MapToGetAllCategoriesItemDto),
             TotalCount = totalCount,
             PageNumber = pageNumber,
-            PageSize = pageSize
+            PageSize = pageSize,
+            ActiveCount = activeCount,
+            InactiveCount = inactiveCount,
         };
     }
 
@@ -63,14 +66,13 @@ public sealed class CategoryService : ICategoryService
 
     public async Task<GetActiveCategoriesResponse> GetActiveAsync(CancellationToken cancellationToken = default)
     {
-        var (items, _) = await _categoryRepository.GetAllAsync(1, 1000, null, cancellationToken);
-        var active = items.Where(c => c.IsActive).OrderBy(c => c.Name);
+        var items = await _categoryRepository.GetActiveAsync(cancellationToken);
 
         return new GetActiveCategoriesResponse
         {
             Status = true,
             Message = "Active categories retrieved successfully.",
-            Data = active.Select(MapToGetActiveCategoriesItemDto)
+            Data = items.Select(MapToGetActiveCategoriesItemDto)
         };
     }
 
@@ -143,14 +145,31 @@ public sealed class CategoryService : ICategoryService
         };
     }
 
-    public async Task<DeleteCategoryResponse> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<DeleteCategoryResponse> DeleteAsync(
+    int id,
+    CancellationToken cancellationToken = default)
     {
         var existing = await _categoryRepository.GetByIdAsync(id, cancellationToken)
-            ?? throw new NotFoundException($"Category with id {id} was not found.");
+            ?? throw new NotFoundException(
+                $"Category with id {id} was not found.");
+
+        bool hasBlogs = await _categoryRepository.HasBlogsAsync(
+            id,
+            cancellationToken);
+
+        if (hasBlogs)
+        {
+            throw new AppException(
+                "Cannot delete a category that has blogs assigned to it.",
+                409);
+        }
 
         await _categoryRepository.DeleteAsync(id, cancellationToken);
 
-        _logger.LogInformation("Category deleted: {Name} (id={Id})", existing.Name, id);
+        _logger.LogInformation(
+            "Category deleted: {Name} (id={Id})",
+            existing.Name,
+            id);
 
         return new DeleteCategoryResponse
         {
@@ -158,6 +177,8 @@ public sealed class CategoryService : ICategoryService
             Message = "Category deleted successfully."
         };
     }
+
+    // ── Mapping helpers ────────────────────────────────────────────────────
 
     private static GetAllCategoriesItemDto MapToGetAllCategoriesItemDto(Category c) => new()
     {

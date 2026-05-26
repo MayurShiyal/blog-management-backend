@@ -65,6 +65,8 @@ public sealed class UserService : IUserService
             Role = request.Role,
             Status = UserStatus.Active,
             IsVerified = false,
+            // Store the raw GUID verification token — NOT a JWT.
+            // A fresh JWT is generated on every login (see LoginAsync).
             VerificationToken = rawVerificationToken
         };
 
@@ -121,11 +123,18 @@ public sealed class UserService : IUserService
             };
         }
 
-        // Admin users get a freshly generated JWT on every login (no email verification flow).
-        // Non-admin users have the JWT stored in VerificationToken after email verification.
-        var jwtToken = user.Role == UserRole.Admin
-            ? _jwtHelper.GenerateToken(user)
-            : user.VerificationToken ?? _jwtHelper.GenerateToken(user);
+        // Generate a fresh JWT on every login and persist it to the database.
+        var jwtToken = _jwtHelper.GenerateToken(user);
+
+        // Store the generated JWT in the VerificationToken column so the
+        // database always reflects the most recently issued token.
+        user.VerificationToken = jwtToken;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _userRepository.UpdateAsync(user, cancellationToken);
+
+        _logger.LogInformation(
+            "User {UserId} ({Email}, Role={Role}) logged in successfully.",
+            user.Id, user.Email, user.Role);
 
         return new UserLoginResponse
         {
@@ -149,8 +158,9 @@ public sealed class UserService : IUserService
         user.IsVerified = true;
         user.UpdatedAt = DateTime.UtcNow;
 
-        var jwtToken = _jwtHelper.GenerateToken(user);
-        user.VerificationToken = jwtToken;
+        // Clear the one-time verification token after the email is confirmed.
+        // A fresh JWT will be stored in VerificationToken on each login (see LoginAsync).
+        user.VerificationToken = null;
 
         await _userRepository.UpdateAsync(user, cancellationToken);
 

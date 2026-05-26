@@ -8,5 +8,7 @@ public class GetAllCategoriesResponse
     public int TotalCount { get; set; }
     public int PageNumber { get; set; }
     public int PageSize { get; set; }
+    public int ActiveCount { get; set; }
+    public int InactiveCount { get; set; }
     public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
 }

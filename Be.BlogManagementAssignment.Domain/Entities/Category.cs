@@ -16,6 +16,6 @@ public class Category
 
     public DateTime? UpdatedAt { get; set; }
 
-    // Navigation — one Category → many Blogs
-    public ICollection<Blog> Blogs { get; set; } = new List<Blog>();
+    /// <summary>Many-to-many: a category can contain multiple blogs.</summary>
+    public ICollection<BlogCategory> BlogCategories { get; set; } = new List<BlogCategory>();
 }

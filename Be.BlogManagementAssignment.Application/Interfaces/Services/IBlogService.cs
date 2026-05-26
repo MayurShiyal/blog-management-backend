@@ -23,6 +23,7 @@ public interface IBlogService
         string? sortBy,
         bool sortDesc,
         int? categoryId,
+        Guid? authorId,
         CancellationToken cancellationToken = default);
 
     // ── GET /api/blogs/{id} ──────────────────────────────────────────────
