@@ -9,9 +9,6 @@ public class CreateBlogRequest
     public string? ShortDescription { get; set; }
     public string Content { get; set; } = default!;
     public string? ThumbnailUrl { get; set; }
-
-    /// <summary>One or more category IDs the blog should belong to.</summary>
     public List<int> CategoryIds { get; set; } = new();
-
     public BlogStatus Status { get; set; }
 }

@@ -15,7 +15,7 @@ public sealed class ForgotPasswordEndPoint : IMinimalEndPoint
             "/forgot-password",
             async (
                 ForgotPasswordRequest request,
-                IUserService userService,
+                IUserService _userService,
                 IValidator<ForgotPasswordRequest> validator) =>
             {
                 var validationResult = await validator.ValidateAsync(request);
@@ -26,7 +26,7 @@ public sealed class ForgotPasswordEndPoint : IMinimalEndPoint
 
                 try
                 {
-                    var response = await userService.ForgotPasswordAsync(request);
+                    var response = await _userService.ForgotPasswordAsync(request);
                     return Results.Ok(response);
                 }
                 catch (Exception ex)

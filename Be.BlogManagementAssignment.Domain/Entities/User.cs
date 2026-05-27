@@ -24,6 +24,5 @@ public class User : BaseEntity
 
     public DateTime? ResetPasswordExpiry { get; set; }
 
-    // Navigation — one Author(User) → many Blogs
     public ICollection<Blog> Blogs { get; set; } = new List<Blog>();
 }

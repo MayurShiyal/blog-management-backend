@@ -12,9 +12,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Be.BlogManagementAssignment.Infrastructure.Implementations.Services;
 
-/// <summary>
-/// Handles user registration, login, email verification, and password reset.
-/// </summary>
 public sealed class UserService : IUserService
 {
     private readonly IUserRepository _userRepository;
@@ -65,8 +62,6 @@ public sealed class UserService : IUserService
             Role = request.Role,
             Status = UserStatus.Active,
             IsVerified = false,
-            // Store the raw GUID verification token — NOT a JWT.
-            // A fresh JWT is generated on every login (see LoginAsync).
             VerificationToken = rawVerificationToken
         };
 
@@ -122,12 +117,16 @@ public sealed class UserService : IUserService
                 Message = "Your email address has not been verified. Please check your inbox and click the verification link."
             };
         }
-
-        // Generate a fresh JWT on every login and persist it to the database.
+        if (user.Status == UserStatus.Inactive)
+        {
+            return new UserLoginResponse
+            {
+                Status = false,
+                Message = "Your account is inactive. Please contact the administrator."
+            };
+        }
         var jwtToken = _jwtHelper.GenerateToken(user);
 
-        // Store the generated JWT in the VerificationToken column so the
-        // database always reflects the most recently issued token.
         user.VerificationToken = jwtToken;
         user.UpdatedAt = DateTime.UtcNow;
         await _userRepository.UpdateAsync(user, cancellationToken);
@@ -158,8 +157,6 @@ public sealed class UserService : IUserService
         user.IsVerified = true;
         user.UpdatedAt = DateTime.UtcNow;
 
-        // Clear the one-time verification token after the email is confirmed.
-        // A fresh JWT will be stored in VerificationToken on each login (see LoginAsync).
         user.VerificationToken = null;
 
         await _userRepository.UpdateAsync(user, cancellationToken);
@@ -177,7 +174,6 @@ public sealed class UserService : IUserService
         var normalisedEmail = request.Email.Trim().ToLowerInvariant();
         var user = await _userRepository.GetByEmailAsync(normalisedEmail, cancellationToken);
 
-        // Always return a success-like message to avoid email enumeration attacks.
         const string genericMessage =
             "If an account with that email exists, a password-reset link has been sent.";
 
@@ -186,7 +182,6 @@ public sealed class UserService : IUserService
             return new ForgotPasswordResponse { Status = true, Message = genericMessage };
         }
 
-        // Generate a secure reset token valid for 1 hour.
         var resetToken = Guid.NewGuid().ToString("N");
         var resetExpiry = DateTime.UtcNow.AddHours(1);
 
@@ -249,7 +244,6 @@ public sealed class UserService : IUserService
             };
         }
 
-        // Update password and clear reset token fields.
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword, workFactor: 12);
         user.ResetPasswordToken = null;
         user.ResetPasswordExpiry = null;

@@ -1,4 +1,5 @@
 using Be.BlogManagementAssignment.Api.Extentions;
+using Be.BlogManagementAssignment.Api.Module.Admin;
 using Be.BlogManagementAssignment.Api.Module.Blog;
 using Be.BlogManagementAssignment.Api.Module.Category;
 using Be.BlogManagementAssignment.Api.Module.User;
@@ -14,6 +15,8 @@ public static class MapModules
             new UserModule(),
             new CategoryModule(),
             new BlogModule(),
+            new AdminModule(),
+            new AdminDashboardModule()
         };
 
         foreach (var module in modules)

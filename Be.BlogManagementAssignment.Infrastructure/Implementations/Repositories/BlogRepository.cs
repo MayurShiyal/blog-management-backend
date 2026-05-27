@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Be.BlogManagementAssignment.Infrastructure.Implementations.Repositories;
 
-/// <summary>EF Core implementation of <see cref="IBlogRepository"/>.</summary>
 public sealed class BlogRepository : IBlogRepository
 {
     private readonly ApplicationDbContext _context;
@@ -16,6 +15,9 @@ public sealed class BlogRepository : IBlogRepository
     {
         _context = context;
     }
+
+    private IQueryable<Blog> ActiveBlogs =>
+        _context.Blogs.Where(b => !b.IsDeleted);
 
     /// <inheritdoc />
     public async Task<(IEnumerable<Blog> Items, int TotalCount)> GetAllAsync(
@@ -29,8 +31,7 @@ public sealed class BlogRepository : IBlogRepository
         bool sortDesc,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.Blogs
-            .AsNoTracking()
+        var query = ActiveBlogs
             .Include(b => b.BlogCategories).ThenInclude(bc => bc.Category)
             .Include(b => b.Author)
             .AsQueryable();
@@ -42,17 +43,16 @@ public sealed class BlogRepository : IBlogRepository
         }
 
         if (status.HasValue)
+        {
             query = query.Where(b => b.Status == status.Value);
+        }
+        else
+        {
+            query = query.Where(b => b.Status != BlogStatus.Draft);
+        }
 
         if (categoryId.HasValue)
-        {
-            if (categoryId.Value == -1)
-                // "General" filter: blogs that have more than one category assigned
-                query = query.Where(b => b.BlogCategories.Count > 1);
-            else
-                // Specific category filter: any blog that includes this category (single or multi)
-                query = query.Where(b => b.BlogCategories.Any(bc => bc.CategoryId == categoryId.Value));
-        }
+            query = query.Where(b => b.BlogCategories.Any(bc => bc.CategoryId == categoryId.Value));
 
         if (authorId.HasValue)
             query = query.Where(b => b.AuthorId == authorId.Value);
@@ -79,8 +79,7 @@ public sealed class BlogRepository : IBlogRepository
         bool sortDesc,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.Blogs
-            .AsNoTracking()
+        var query = ActiveBlogs
             .Include(b => b.BlogCategories).ThenInclude(bc => bc.Category)
             .Include(b => b.Author)
             .Where(b => b.Status == BlogStatus.Published);
@@ -93,18 +92,10 @@ public sealed class BlogRepository : IBlogRepository
         }
 
         if (categoryId.HasValue)
-        {
-            if (categoryId.Value == -1)
-                // "General" filter: blogs that have more than one category assigned
-                query = query.Where(b => b.BlogCategories.Count > 1);
-            else
-                // Specific category filter: any blog that includes this category (single or multi)
-                query = query.Where(b => b.BlogCategories.Any(bc => bc.CategoryId == categoryId.Value));
-        }
+            query = query.Where(b => b.BlogCategories.Any(bc => bc.CategoryId == categoryId.Value));
 
         var totalCount = await query.CountAsync(cancellationToken);
 
-        // Default sort for public feed: most recently published first
         query = ApplySort(query, sortBy ?? "publishedAt", sortDesc);
 
         var items = await query
@@ -127,8 +118,7 @@ public sealed class BlogRepository : IBlogRepository
         bool sortDesc,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.Blogs
-            .AsNoTracking()
+        var query = ActiveBlogs
             .Include(b => b.BlogCategories).ThenInclude(bc => bc.Category)
             .Include(b => b.Author)
             .Where(b => b.AuthorId == authorId);
@@ -143,14 +133,7 @@ public sealed class BlogRepository : IBlogRepository
             query = query.Where(b => b.Status == status.Value);
 
         if (categoryId.HasValue)
-        {
-            if (categoryId.Value == -1)
-                // "General" filter: blogs that have more than one category assigned
-                query = query.Where(b => b.BlogCategories.Count > 1);
-            else
-                // Specific category filter: any blog that includes this category (single or multi)
-                query = query.Where(b => b.BlogCategories.Any(bc => bc.CategoryId == categoryId.Value));
-        }
+            query = query.Where(b => b.BlogCategories.Any(bc => bc.CategoryId == categoryId.Value));
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -166,16 +149,14 @@ public sealed class BlogRepository : IBlogRepository
 
     /// <inheritdoc />
     public Task<Blog?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-        => _context.Blogs
-            .AsNoTracking()
+        => ActiveBlogs
             .Include(b => b.BlogCategories).ThenInclude(bc => bc.Category)
             .Include(b => b.Author)
             .FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
 
     /// <inheritdoc />
     public Task<Blog?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
-        => _context.Blogs
-            .AsNoTracking()
+        => ActiveBlogs
             .Include(b => b.BlogCategories).ThenInclude(bc => bc.Category)
             .Include(b => b.Author)
             .FirstOrDefaultAsync(
@@ -189,7 +170,7 @@ public sealed class BlogRepository : IBlogRepository
         CancellationToken cancellationToken = default)
     {
         var lower = slug.Trim().ToLowerInvariant();
-        return _context.Blogs.AnyAsync(
+        return ActiveBlogs.AnyAsync(
             b => b.Slug == lower && (excludeId == null || b.Id != excludeId),
             cancellationToken);
     }
@@ -205,13 +186,11 @@ public sealed class BlogRepository : IBlogRepository
     /// <inheritdoc />
     public async Task UpdateAsync(Blog blog, CancellationToken cancellationToken = default)
     {
-        // Re-attach in tracking mode so EF can detect changes to BlogCategories
         var tracked = await _context.Blogs
             .Include(b => b.BlogCategories)
-            .FirstOrDefaultAsync(b => b.Id == blog.Id, cancellationToken)
+            .FirstOrDefaultAsync(b => b.Id == blog.Id && !b.IsDeleted, cancellationToken)
             ?? throw new NotFoundException($"Blog with id {blog.Id} was not found.");
 
-        // Scalar fields
         tracked.Title = blog.Title;
         tracked.Slug = blog.Slug;
         tracked.ShortDescription = blog.ShortDescription;
@@ -222,8 +201,6 @@ public sealed class BlogRepository : IBlogRepository
         tracked.PublishedAt = blog.PublishedAt;
         tracked.UpdatedAt = blog.UpdatedAt;
         tracked.AuthorId = blog.AuthorId;
-
-        // Replace category links
         tracked.BlogCategories.Clear();
         foreach (var bc in blog.BlogCategories)
             tracked.BlogCategories.Add(new BlogCategory { BlogId = tracked.Id, CategoryId = bc.CategoryId });
@@ -234,15 +211,16 @@ public sealed class BlogRepository : IBlogRepository
     /// <inheritdoc />
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var blog = await _context.Blogs.FindAsync([id], cancellationToken)
+        var blog = await _context.Blogs
+            .FirstOrDefaultAsync(b => b.Id == id && !b.IsDeleted, cancellationToken)
             ?? throw new NotFoundException($"Blog with id {id} was not found.");
 
-        _context.Blogs.Remove(blog);
+        blog.IsDeleted = true;
+        blog.DeletedAt = DateTime.UtcNow;
+        blog.UpdatedAt = DateTime.UtcNow;
+
         await _context.SaveChangesAsync(cancellationToken);
     }
-
-    // ── Sorting ──────────────────────────────────────────────────────────────
-
     private static IQueryable<Blog> ApplySort(IQueryable<Blog> query, string? sortBy, bool sortDesc)
     {
         return sortBy?.ToLowerInvariant() switch

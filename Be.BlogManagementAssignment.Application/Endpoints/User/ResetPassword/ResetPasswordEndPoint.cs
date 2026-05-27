@@ -15,7 +15,7 @@ public sealed class ResetPasswordEndPoint : IMinimalEndPoint
             "/reset-password",
             async (
                 ResetPasswordRequest request,
-                IUserService userService,
+                IUserService _userService,
                 IValidator<ResetPasswordRequest> validator) =>
             {
                 var validationResult = await validator.ValidateAsync(request);
@@ -26,7 +26,7 @@ public sealed class ResetPasswordEndPoint : IMinimalEndPoint
 
                 try
                 {
-                    var response = await userService.ResetPasswordAsync(request);
+                    var response = await _userService.ResetPasswordAsync(request);
 
                     if (!response.Status)
                     {

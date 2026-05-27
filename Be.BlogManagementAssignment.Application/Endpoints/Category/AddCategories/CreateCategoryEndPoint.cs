@@ -16,7 +16,7 @@ public sealed class CreateCategoryEndPoint : IMinimalEndPoint
             "/",
             async (
                 CreateCategoryRequest request,
-                ICategoryService categoryService,
+                ICategoryService _categoryService,
                 IValidator<CreateCategoryRequest> validator) =>
             {
                 var validation = await validator.ValidateAsync(request);
@@ -25,7 +25,7 @@ public sealed class CreateCategoryEndPoint : IMinimalEndPoint
 
                 try
                 {
-                    var result = await categoryService.CreateAsync(request);
+                    var result = await _categoryService.CreateAsync(request);
                     return Results.Created($"/api/categories/{result.Data?.Id}", result);
                 }
                 catch (ConflictException ex)

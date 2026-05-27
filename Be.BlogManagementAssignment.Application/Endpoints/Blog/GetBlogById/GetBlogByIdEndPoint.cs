@@ -7,28 +7,20 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Be.BlogManagementAssignment.Application.Endpoints.Blog.GetBlogById;
 
-/// <summary>
-/// GET /api/blogs/{id}
-///
-/// Role-based visibility:
-///   • Admin  → any blog
-///   • Author → own blog only (403 for others)
-///   • Public → published blog only (404 if not published)
-/// </summary>
 public sealed class GetBlogByIdEndPoint : IMinimalEndPoint
 {
     public void AddRoutes(IEndpointRouteBuilder app)
     {
         app.MapGet(
             "/{id:guid}",
-            async (Guid id, HttpContext httpContext, IBlogService blogService, CancellationToken cancellationToken) =>
+            async (Guid id, HttpContext _httpContext, IBlogService _blogService, CancellationToken cancellationToken) =>
             {
-                var role   = httpContext.User.FindFirst("Role")?.Value;
-                var userId = httpContext.User.FindFirst("UserId")?.Value;
+                var role   = _httpContext.User.FindFirst("Role")?.Value;
+                var userId = _httpContext.User.FindFirst("UserId")?.Value;
 
                 try
                 {
-                    var result = await blogService.GetBlogByIdAsync(id, role, userId, cancellationToken);
+                    var result = await _blogService.GetBlogByIdAsync(id, role, userId, cancellationToken);
                     return Results.Ok(result);
                 }
                 catch (NotFoundException ex)

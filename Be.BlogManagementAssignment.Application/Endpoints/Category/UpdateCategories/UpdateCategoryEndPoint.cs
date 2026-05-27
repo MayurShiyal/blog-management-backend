@@ -17,7 +17,7 @@ public sealed class UpdateCategoryEndPoint : IMinimalEndPoint
             async (
                 int id,
                 UpdateCategoryRequest request,
-                ICategoryService categoryService,
+                ICategoryService _categoryService,
                 IValidator<UpdateCategoryRequest> validator) =>
             {
                 var validation = await validator.ValidateAsync(request);
@@ -26,7 +26,7 @@ public sealed class UpdateCategoryEndPoint : IMinimalEndPoint
 
                 try
                 {
-                    var result = await categoryService.UpdateAsync(id, request);
+                    var result = await _categoryService.UpdateAsync(id, request);
                     return Results.Ok(result);
                 }
                 catch (NotFoundException ex)

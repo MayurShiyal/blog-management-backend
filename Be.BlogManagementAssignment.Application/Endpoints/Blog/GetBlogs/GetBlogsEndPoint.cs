@@ -7,21 +7,6 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Be.BlogManagementAssignment.Application.Endpoints.Blog.GetBlogs;
 
-/// <summary>
-/// GET /api/blogs
-///
-/// Single unified endpoint for all blog list retrieval.
-/// Role-based filtering, slug lookup, status filter, search, pagination,
-/// and sort are all handled via query parameters.
-///
-/// Role behaviour (resolved from JWT — no separate routes):
-///   • Admin   → all blogs, all authors, all statuses
-///   • Author  → own blogs only (mine=true implied, overridable by mine=false for public feed)
-///   • Public  → Published blogs only
-///
-/// Query parameters (all optional):
-///   slug, status, search, mine, pageNumber, pageSize, sortBy, sortDesc, categoryId
-/// </summary>
 public sealed class GetBlogsEndPoint : IMinimalEndPoint
 {
     public void AddRoutes(IEndpointRouteBuilder app)
@@ -29,8 +14,8 @@ public sealed class GetBlogsEndPoint : IMinimalEndPoint
         app.MapGet(
             "/",
             async (
-                HttpContext httpContext,
-                IBlogService blogService,
+                HttpContext _httpContext,
+                IBlogService _blogService,
                 string? slug = null,
                 BlogStatus? status = null,
                 string? search = null,
@@ -43,10 +28,10 @@ public sealed class GetBlogsEndPoint : IMinimalEndPoint
                 Guid? authorId = null,
                 CancellationToken cancellationToken = default) =>
             {
-                var role   = httpContext.User.FindFirst("Role")?.Value;
-                var userId = httpContext.User.FindFirst("UserId")?.Value;
+                var role   = _httpContext.User.FindFirst("Role")?.Value;
+                var userId = _httpContext.User.FindFirst("UserId")?.Value;
 
-                var result = await blogService.GetBlogsAsync(
+                var result = await _blogService.GetBlogsAsync(
                     role, userId, slug, status, search, mine,
                     pageNumber, pageSize, sortBy, sortDesc, categoryId,authorId,
                     cancellationToken);

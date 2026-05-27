@@ -22,9 +22,7 @@ public class Blog : BaseEntity
 
     public DateTime? PublishedAt { get; set; }
 
-    // Navigation properties
     public User Author { get; set; } = default!;
 
-    /// <summary>Many-to-many: a blog can belong to multiple categories.</summary>
     public ICollection<BlogCategory> BlogCategories { get; set; } = new List<BlogCategory>();
 }

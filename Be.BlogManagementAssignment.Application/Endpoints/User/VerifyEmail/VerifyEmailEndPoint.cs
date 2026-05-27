@@ -6,20 +6,13 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Be.BlogManagementAssignment.Application.Endpoints.User.VerifyEmail;
 
-/// <summary>
-/// GET /api/user/verify-email?token={token}
-///
-/// Called when the user clicks the verification link in their email.
-/// Marks IsVerified = true, stores the JWT in VerificationToken, and
-/// returns a confirmation message. The JWT can then be retrieved on Login.
-/// </summary>
 public sealed class VerifyEmailEndPoint : IMinimalEndPoint
 {
     public void AddRoutes(IEndpointRouteBuilder app)
     {
         app.MapGet(
             "/verify-email",
-            async (string token, IUserService userService) =>
+            async (string token, IUserService _userService) =>
             {
                 if (string.IsNullOrWhiteSpace(token))
                 {
@@ -33,7 +26,7 @@ public sealed class VerifyEmailEndPoint : IMinimalEndPoint
 
                 try
                 {
-                    var result = await userService.VerifyEmailAsync(token);
+                    var result = await _userService.VerifyEmailAsync(token);
 
                     if (!result)
                     {

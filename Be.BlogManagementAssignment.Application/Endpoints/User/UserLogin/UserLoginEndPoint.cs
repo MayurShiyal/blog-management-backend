@@ -15,7 +15,7 @@ public sealed class UserLoginEndPoint : IMinimalEndPoint
             "/login",
             async (
                 UserLoginRequest request,
-                IUserService userService,
+                IUserService _userService,
                 IValidator<UserLoginRequest> validator) =>
             {
                 var validationResult = await validator.ValidateAsync(request);
@@ -26,7 +26,7 @@ public sealed class UserLoginEndPoint : IMinimalEndPoint
 
                 try
                 {
-                    var response = await userService.LoginAsync(request);
+                    var response = await _userService.LoginAsync(request);
 
                     if (!response.Status)
                     {

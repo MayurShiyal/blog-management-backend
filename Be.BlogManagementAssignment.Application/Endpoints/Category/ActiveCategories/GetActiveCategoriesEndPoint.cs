@@ -12,9 +12,9 @@ public sealed class GetActiveCategoriesEndPoint : IMinimalEndPoint
     {
         app.MapGet(
             "/active",
-            async (ICategoryService categoryService) =>
+            async (ICategoryService _categoryService) =>
             {
-                var result = await categoryService.GetActiveAsync();
+                var result = await _categoryService.GetActiveAsync();
                 return Results.Ok(result);
             })
             .WithName("getActiveCategories")

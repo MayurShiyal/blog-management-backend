@@ -7,30 +7,20 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Be.BlogManagementAssignment.Application.Endpoints.Blog.DeleteBlog;
 
-/// <summary>
-/// DELETE /api/blogs/{id}
-///
-/// Role-based behaviour (resolved from JWT — no separate routes):
-///   • Admin  → can delete any blog regardless of authorship.
-///   • Author → can only delete their own blog; returns 403 for others.
-///   • Other  → 401 Unauthorized.
-///
-/// All role and ownership logic is in BlogService.DeleteBlogAsync.
-/// </summary>
 public sealed class DeleteBlogEndPoint : IMinimalEndPoint
 {
     public void AddRoutes(IEndpointRouteBuilder app)
     {
         app.MapDelete(
             "/{id:guid}",
-            async (Guid id, HttpContext httpContext, IBlogService blogService, CancellationToken cancellationToken) =>
+            async (Guid id, HttpContext _httpContext, IBlogService _blogService, CancellationToken cancellationToken) =>
             {
-                var role   = httpContext.User.FindFirst("Role")?.Value;
-                var userId = httpContext.User.FindFirst("UserId")?.Value;
+                var role   = _httpContext.User.FindFirst("Role")?.Value;
+                var userId = _httpContext.User.FindFirst("UserId")?.Value;
 
                 try
                 {
-                    var result = await blogService.DeleteBlogAsync(id, role, userId, cancellationToken);
+                    var result = await _blogService.DeleteBlogAsync(id, role, userId, cancellationToken);
                     return Results.Ok(result);
                 }
                 catch (NotFoundException ex)

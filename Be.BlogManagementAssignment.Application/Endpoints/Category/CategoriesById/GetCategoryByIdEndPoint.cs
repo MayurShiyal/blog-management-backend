@@ -13,11 +13,11 @@ public sealed class GetCategoryByIdEndPoint : IMinimalEndPoint
     {
         app.MapGet(
             "/{id:int}",
-            async (int id, ICategoryService categoryService) =>
+            async (int id, ICategoryService _categoryService) =>
             {
                 try
                 {
-                    var result = await categoryService.GetByIdAsync(id);
+                    var result = await _categoryService.GetByIdAsync(id);
                     return Results.Ok(result);
                 }
                 catch (NotFoundException ex)

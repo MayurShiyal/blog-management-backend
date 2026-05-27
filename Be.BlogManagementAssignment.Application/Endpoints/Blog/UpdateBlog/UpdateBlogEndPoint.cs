@@ -8,12 +8,6 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Be.BlogManagementAssignment.Application.Endpoints.Blog.UpdateBlog;
 
-/// <summary>
-/// PUT /api/blogs/{id}
-///
-/// Updates blog content fields (Author or Admin).
-/// For approval/rejection use PATCH /api/blogs/{id}/status.
-/// </summary>
 public sealed class UpdateBlogEndPoint : IMinimalEndPoint
 {
     public void AddRoutes(IEndpointRouteBuilder app)
@@ -23,8 +17,8 @@ public sealed class UpdateBlogEndPoint : IMinimalEndPoint
             async (
                 Guid id,
                 UpdateBlogRequest request,
-                HttpContext httpContext,
-                IBlogService blogService,
+                HttpContext _httpContext,
+                IBlogService _blogService,
                 IValidator<UpdateBlogRequest> validator,
                 CancellationToken cancellationToken) =>
             {
@@ -32,12 +26,12 @@ public sealed class UpdateBlogEndPoint : IMinimalEndPoint
                 if (!validation.IsValid)
                     return Results.ValidationProblem(validation.ToDictionary());
 
-                var role   = httpContext.User.FindFirst("Role")?.Value;
-                var userId = httpContext.User.FindFirst("UserId")?.Value;
+                var role   = _httpContext.User.FindFirst("Role")?.Value;
+                var userId = _httpContext.User.FindFirst("UserId")?.Value;
 
                 try
                 {
-                    var result = await blogService.UpdateBlogAsync(id, request, role, userId, cancellationToken);
+                    var result = await _blogService.UpdateBlogAsync(id, request, role, userId, cancellationToken);
                     return Results.Ok(result);
                 }
                 catch (NotFoundException ex)

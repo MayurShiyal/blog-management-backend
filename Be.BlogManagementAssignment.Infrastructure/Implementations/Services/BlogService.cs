@@ -35,7 +35,6 @@ public sealed class BlogService : IBlogService
                && parsedRole == requiredRole;
     }
 
-    // ── GET /api/blogs ───────────────────────────────────────────────────────
     public async Task<GetBlogsResponse> GetBlogsAsync(
         string? role,
         string? userId,
@@ -108,7 +107,6 @@ public sealed class BlogService : IBlogService
         }
     }
 
-    // ── GET /api/blogs/{id} ──────────────────────────────────────────────────
     public async Task<GetBlogByIdResponse> GetBlogByIdAsync(
         Guid blogId,
         string? role,
@@ -134,7 +132,6 @@ public sealed class BlogService : IBlogService
         return OkBlogByIdResponse(blog);
     }
 
-    // ── POST /api/blogs ──────────────────────────────────────────────────────
     public async Task<CreateBlogResponse> CreateAsync(
         CreateBlogRequest request,
         Guid authorId,
@@ -145,7 +142,6 @@ public sealed class BlogService : IBlogService
         if (await _blogRepository.ExistsBySlugAsync(slug, cancellationToken: cancellationToken))
             throw new ConflictException($"A blog with the slug '{slug}' already exists.");
 
-        // Validate all requested categories (Business layer checks: existence & active status)
         var categories = await ValidateCategoriesAsync(request.CategoryIds, cancellationToken);
 
         var blog = new Blog
@@ -165,7 +161,6 @@ public sealed class BlogService : IBlogService
 
         var created = await _blogRepository.CreateAsync(blog, cancellationToken);
 
-        // Attach category names for the response DTO (avoid extra DB round-trip)
         foreach (var bc in created.BlogCategories)
             bc.Category = categories.First(c => c.Id == bc.CategoryId);
 
@@ -179,7 +174,6 @@ public sealed class BlogService : IBlogService
         };
     }
 
-    // ── PUT /api/blogs/{id} ──────────────────────────────────────────────────
     public async Task<UpdateBlogResponse> UpdateBlogAsync(
         Guid blogId,
         UpdateBlogRequest request,
@@ -190,20 +184,17 @@ public sealed class BlogService : IBlogService
         var existing = await _blogRepository.GetByIdAsync(blogId, cancellationToken)
             ?? throw new NotFoundException($"Blog with id {blogId} was not found.");
 
-        // Authors may only edit their own blogs; Admins may edit any
         if (!HasRole(role, UserRole.Admin))
         {
             if (!HasRole(role, UserRole.Author) || !Guid.TryParse(userId, out var authorId) || existing.AuthorId != authorId)
                 throw new AppException("You are not authorized to update this blog.", 403);
         }
 
-        // Only Draft or Rejected blogs can be edited
         if (existing.Status != BlogStatus.Draft && existing.Status != BlogStatus.Rejected)
             throw new AppException("Only Draft or Rejected blogs can be updated.", 400);
 
         await ApplyContentUpdatesAsync(existing, request, cancellationToken);
 
-        // Allow Author to submit a Draft blog for approval in the same PUT request.
         if (request.Status.HasValue)
         {
             if (request.Status.Value == BlogStatus.PendingApproval
@@ -236,7 +227,6 @@ public sealed class BlogService : IBlogService
         };
     }
 
-    // ── PATCH /api/blogs/{id}/status ─────────────────────────────────────────
     public async Task<UpdateBlogStatusResponse> UpdateBlogStatusAsync(
         Guid blogId,
         UpdateBlogStatusRequest request,
@@ -257,7 +247,6 @@ public sealed class BlogService : IBlogService
         };
     }
 
-    // ── DELETE /api/blogs/{id} ───────────────────────────────────────────────
     public async Task<DeleteBlogResponse> DeleteBlogAsync(
         Guid blogId,
         string? role,
@@ -287,7 +276,6 @@ public sealed class BlogService : IBlogService
         throw new AppException("You are not authorized to delete this blog.", 403);
     }
 
-    // ── Private status transition handlers ───────────────────────────────────
     private async Task<UpdateBlogStatusResponse> HandleApproveAsync(Blog existing, CancellationToken ct)
     {
         if (existing.Status != BlogStatus.PendingApproval)
@@ -325,7 +313,6 @@ public sealed class BlogService : IBlogService
         return OkStatusResponse($"Blog rejected. Reason: {existing.RejectionReason}", existing);
     }
 
-    // ── Shared content update helper ─────────────────────────────────────────
     private async Task ApplyContentUpdatesAsync(Blog existing, UpdateBlogRequest request, CancellationToken ct)
     {
         if (request.Title is not null) existing.Title = request.Title.Trim();
@@ -356,7 +343,6 @@ public sealed class BlogService : IBlogService
         }
     }
 
-    // ── Category validation helper ────────────────────────────────────────────
     private async Task<List<Category>> ValidateCategoriesAsync(
         List<int> categoryIds,
         CancellationToken ct)
@@ -378,19 +364,16 @@ public sealed class BlogService : IBlogService
         return categories;
     }
 
-    // ── Guard helpers ────────────────────────────────────────────────────────
     private static void AssertIsAdmin(string? role, string action)
     {
         if (!HasRole(role, UserRole.Admin))
             throw new AppException($"Only Admins are allowed to {action}.", 403);
     }
 
-    // ── Pagination ───────────────────────────────────────────────────────────
     private static (int pageNumber, int pageSize) Paginate(int pageNumber, int pageSize) =>
         (pageNumber < 1 ? 1 : pageNumber,
          pageSize < 1 ? 10 : pageSize > 100 ? 100 : pageSize);
 
-    // ── Response builders ────────────────────────────────────────────────────
     private static GetBlogsResponse EmptyListResponse(string message) => new()
     {
         Status = false,
@@ -430,7 +413,6 @@ public sealed class BlogService : IBlogService
         Data = MapToUpdateBlogStatusDto(b)
     };
 
-    // ── Mappers ──────────────────────────────────────────────────────────────
     private static string? GetAuthorName(Blog b) =>
         b.Author != null ? $"{b.Author.FirstName} {b.Author.LastName}".Trim() : null;
 

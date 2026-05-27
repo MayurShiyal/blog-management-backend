@@ -7,13 +7,6 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Be.BlogManagementAssignment.Application.Endpoints.Blog.UpdateBlogStatus;
 
-/// <summary>
-/// PATCH /api/blogs/{id}/status
-///
-/// Admin-only endpoint to approve or reject a blog.
-///   Status = Published → approve
-///   Status = Rejected  → reject (RejectionReason required)
-/// </summary>
 public sealed class UpdateBlogStatusEndPoint : IMinimalEndPoint
 {
     public void AddRoutes(IEndpointRouteBuilder app)
@@ -23,15 +16,15 @@ public sealed class UpdateBlogStatusEndPoint : IMinimalEndPoint
             async (
                 Guid id,
                 UpdateBlogStatusRequest request,
-                HttpContext httpContext,
-                IBlogService blogService,
+                HttpContext _httpContext,
+                IBlogService _blogService,
                 CancellationToken cancellationToken) =>
             {
-                var role = httpContext.User.FindFirst("Role")?.Value;
+                var role = _httpContext.User.FindFirst("Role")?.Value;
 
                 try
                 {
-                    var result = await blogService.UpdateBlogStatusAsync(id, request, role, cancellationToken);
+                    var result = await _blogService.UpdateBlogStatusAsync(id, request, role, cancellationToken);
                     return Results.Ok(result);
                 }
                 catch (NotFoundException ex)

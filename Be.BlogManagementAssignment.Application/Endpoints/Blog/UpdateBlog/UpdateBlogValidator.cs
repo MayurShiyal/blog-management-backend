@@ -7,21 +7,21 @@ public class UpdateBlogValidator : AbstractValidator<UpdateBlogRequest>
     public UpdateBlogValidator()
     {
         RuleFor(x => x.Title)
-            .MaximumLength(250)
+            .MaximumLength(100)
             .When(x => x.Title is not null);
 
         RuleFor(x => x.Slug)
-            .MaximumLength(300)
+            .MaximumLength(100)
             .Matches(@"^[a-z0-9]+(?:-[a-z0-9]+)*$")
             .WithMessage("Slug must be lowercase, alphanumeric, and hyphen-separated.")
             .When(x => x.Slug is not null);
 
         RuleFor(x => x.ShortDescription)
-            .MaximumLength(500)
+            .MaximumLength(150)
             .When(x => x.ShortDescription is not null);
 
         RuleFor(x => x.ThumbnailUrl)
-            .MaximumLength(2000)
+            .MaximumLength(200)
             .When(x => x.ThumbnailUrl is not null);
     }
 }

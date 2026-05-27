@@ -16,7 +16,7 @@ public sealed class UserRegistrationEndPoint : IMinimalEndPoint
             "/register",
             async (
                 UserRegistrationRequest request,
-                IUserService userService,
+                IUserService _userService,
                 IValidator<UserRegistrationRequest> validator) =>
             {
                 var validationResult = await validator.ValidateAsync(request);
@@ -27,7 +27,7 @@ public sealed class UserRegistrationEndPoint : IMinimalEndPoint
 
                 try
                 {
-                    var response = await userService.RegisterAsync(request);
+                    var response = await _userService.RegisterAsync(request);
 
                     if (!response.Status)
                     {

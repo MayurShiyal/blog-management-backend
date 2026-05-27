@@ -18,7 +18,7 @@ public class CreateCategoryValidator : AbstractValidator<CreateCategoryRequest>
             .WithMessage("Slug must contain only lowercase letters, numbers, and hyphens.");
 
         RuleFor(x => x.Description)
-            .MaximumLength(500).WithMessage("Description must not exceed 500 characters.")
+            .MaximumLength(200).WithMessage("Description must not exceed 500 characters.")
             .When(x => x.Description is not null);
     }
 }

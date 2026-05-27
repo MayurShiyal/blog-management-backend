@@ -41,10 +41,11 @@ public class ApplicationDbContext : DbContext
               .HasDatabaseName("IX_Categories_Slug");
 
             entity.Property(c => c.Description)
-              .HasMaxLength(500);
+              .HasMaxLength(200);
 
             entity.Property(c => c.IsActive)
-              .HasDefaultValue(true);
+              .HasDefaultValue(true)
+              .ValueGeneratedNever(); 
 
             entity.Property(c => c.CreatedAt)
               .HasColumnType("timestamp with time zone");
@@ -63,31 +64,38 @@ public class ApplicationDbContext : DbContext
 
             entity.Property(b => b.Title)
               .IsRequired()
-              .HasMaxLength(250);
+              .HasMaxLength(100);
 
             entity.Property(b => b.Slug)
               .IsRequired()
-              .HasMaxLength(300);
+              .HasMaxLength(100);
 
             entity.HasIndex(b => b.Slug)
               .IsUnique()
               .HasDatabaseName("IX_Blogs_Slug");
 
             entity.Property(b => b.ShortDescription)
-              .HasMaxLength(500);
+              .HasMaxLength(150);
 
             entity.Property(b => b.Content)
               .IsRequired();
 
             entity.Property(b => b.ThumbnailUrl)
-              .HasMaxLength(2000);
+              .HasMaxLength(200);
 
             entity.Property(b => b.Status)
               .HasConversion<int>()
-              .HasDefaultValue(BlogStatus.Draft);
+              .HasDefaultValue(BlogStatus.Draft)
+              .ValueGeneratedNever(); 
+            entity.Property(b => b.IsDeleted)
+              .HasDefaultValue(false)
+              .ValueGeneratedNever();
+
+            entity.Property(b => b.DeletedAt)
+              .HasColumnType("timestamp with time zone");
 
             entity.Property(b => b.RejectionReason)
-              .HasMaxLength(1000)
+              .HasMaxLength(100)
               .IsRequired(false);
 
             entity.Property(b => b.CreatedAt)

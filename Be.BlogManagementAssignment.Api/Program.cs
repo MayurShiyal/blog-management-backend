@@ -25,9 +25,6 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// ── Remove UseHttpsRedirection — backend runs on HTTP (port 5121) ──────────
-// app.UseHttpsRedirection();
-
 // ── CORS — must be placed before auth middleware ───────────────────────────
 app.UseCors("AllowFrontend");
 

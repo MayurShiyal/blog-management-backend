@@ -13,13 +13,13 @@ public sealed class GetAllCategoriesEndPoint : IMinimalEndPoint
         app.MapGet(
             "/",
             async (
-                ICategoryService categoryService,
+                ICategoryService _categoryService,
                 int pageNumber = 1,
                 int pageSize = 10,
                 string? search = null,
                 bool? IsActive = null) =>
             {
-                var result = await categoryService.GetAllAsync(pageNumber, pageSize, search, IsActive);
+                var result = await _categoryService.GetAllAsync(pageNumber, pageSize, search, IsActive);
                 return Results.Ok(result);
             })
             .WithName("getAllCategories")

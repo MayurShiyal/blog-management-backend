@@ -13,11 +13,11 @@ public sealed class DeleteCategoryEndPoint : IMinimalEndPoint
     {
         app.MapDelete(
             "/{id:int}",
-            async (int id, ICategoryService categoryService) =>
+            async (int id, ICategoryService _categoryService) =>
             {
                 try
                 {
-                    var result = await categoryService.DeleteAsync(id);
+                    var result = await _categoryService.DeleteAsync(id);
                     return Results.Ok(result);
                 }
                 catch (NotFoundException ex)

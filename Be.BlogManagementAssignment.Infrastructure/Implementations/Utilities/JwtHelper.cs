@@ -7,10 +7,6 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Be.BlogManagementAssignment.Infrastructure.Implementations.Utilities;
 
-/// <summary>
-/// Generates signed JWT tokens containing only UserId, Email, and Role claims.
-/// Configuration is read from the "Jwt" section of appsettings.json.
-/// </summary>
 public sealed class JwtHelper
 {
     private readonly IConfiguration _configuration;
@@ -20,10 +16,6 @@ public sealed class JwtHelper
         _configuration = configuration;
     }
 
-    /// <summary>
-    /// Creates a signed JWT token for the given user.
-    /// Claims included: UserId, Email, Role only.
-    /// </summary>
     public string GenerateToken(User user)
     {
         var jwtSection = _configuration.GetSection("Jwt");
@@ -38,7 +30,6 @@ public sealed class JwtHelper
         var signingKey  = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
         var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
 
-        // Only UserId, Email, Role — no jti or extra metadata
         var claims = new[]
         {
             new Claim("UserId", user.Id.ToString()),

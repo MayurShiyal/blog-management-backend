@@ -16,21 +16,21 @@ public sealed class CreateBlogEndPoint : IMinimalEndPoint
             "/",
             async (
                 CreateBlogRequest request,
-                HttpContext httpContext,
-                IBlogService blogService,
+                HttpContext _httpContext,
+                IBlogService _blogService,
                 IValidator<CreateBlogRequest> validator) =>
             {
                 var validation = await validator.ValidateAsync(request);
                 if (!validation.IsValid)
                     return Results.ValidationProblem(validation.ToDictionary());
 
-                var authorId = GetAuthorId(httpContext);
+                var authorId = GetAuthorId(_httpContext);
                 if (authorId == null)
                     return Results.Unauthorized();
 
                 try
                 {
-                    var result = await blogService.CreateAsync(request, authorId.Value);
+                    var result = await _blogService.CreateAsync(request, authorId.Value);
                     return Results.Created($"/api/blogs/{result.Data?.Id}", result);
                 }
                 catch (ConflictException ex)
@@ -56,9 +56,9 @@ public sealed class CreateBlogEndPoint : IMinimalEndPoint
             .RequireAuthorization("AuthorOnly");
     }
 
-    private static Guid? GetAuthorId(HttpContext httpContext)
+    private static Guid? GetAuthorId(HttpContext _httpContext)
     {
-        var userIdClaim = httpContext.User.FindFirst("UserId")?.Value;
+        var userIdClaim = _httpContext.User.FindFirst("UserId")?.Value;
         return Guid.TryParse(userIdClaim, out var id) ? id : null;
     }
 }

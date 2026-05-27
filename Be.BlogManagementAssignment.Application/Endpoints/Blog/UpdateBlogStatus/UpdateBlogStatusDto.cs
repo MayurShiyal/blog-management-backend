@@ -1,6 +1,5 @@
 namespace Be.BlogManagementAssignment.Application.Endpoints.Blog.UpdateBlogStatus;
 
-/// <summary>Lightweight status-change result DTO (used internally by UpdateBlogAsync).</summary>
 public class UpdateBlogStatusDto
 {
     public Guid Id { get; set; }

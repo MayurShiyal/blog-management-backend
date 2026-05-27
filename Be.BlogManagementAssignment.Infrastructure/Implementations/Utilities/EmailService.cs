@@ -5,9 +5,6 @@ using Microsoft.Extensions.Configuration;
 
 namespace Be.BlogManagementAssignment.Infrastructure.Implementations.Utilities;
 
-/// <summary>
-/// Sends transactional emails via SMTP using System.Net.Mail (no third-party dependency).
-/// </summary>
 public sealed class EmailService : IEmailService
 {
     private readonly IConfiguration _configuration;

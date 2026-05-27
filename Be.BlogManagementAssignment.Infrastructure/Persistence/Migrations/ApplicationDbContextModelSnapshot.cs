@@ -17,220 +17,268 @@ namespace Be.BlogManagementAssignment.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.0")
+                .HasAnnotation("ProductVersion", "10.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Be.BlogManagementAssignment.Domain.Entities.Blog", b =>
-            {
-                b.Property<Guid>("Id")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("uuid");
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
 
-                b.Property<Guid>("AuthorId")
-                    .HasColumnType("uuid");
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
 
-                b.Property<string>("Content")
-                    .IsRequired()
-                    .HasColumnType("text");
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
 
-                b.Property<DateTime>("CreatedAt")
-                    .HasColumnType("timestamp with time zone");
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
 
-                b.Property<string>("RejectionReason")
-                    .HasMaxLength(1000)
-                    .HasColumnType("character varying(1000)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
 
-                b.Property<string>("ShortDescription")
-                    .HasMaxLength(500)
-                    .HasColumnType("character varying(500)");
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
 
-                b.Property<string>("Slug")
-                    .IsRequired()
-                    .HasMaxLength(300)
-                    .HasColumnType("character varying(300)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
 
-                b.Property<int>("Status")
-                    .HasDefaultValue(0)
-                    .HasColumnType("integer");
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
 
-                b.Property<string>("ThumbnailUrl")
-                    .HasMaxLength(2000)
-                    .HasColumnType("character varying(2000)");
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone");
 
-                b.Property<string>("Title")
-                    .IsRequired()
-                    .HasMaxLength(250)
-                    .HasColumnType("character varying(250)");
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
-                b.Property<DateTime?>("PublishedAt")
-                    .HasColumnType("timestamp with time zone");
+                    b.Property<string>("ShortDescription")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
 
-                b.Property<DateTime?>("UpdatedAt")
-                    .HasColumnType("timestamp with time zone");
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
-                b.HasKey("Id");
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
 
-                b.HasIndex("AuthorId");
+                    b.Property<string>("ThumbnailUrl")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
-                b.HasIndex("Slug")
-                    .IsUnique()
-                    .HasDatabaseName("IX_Blogs_Slug");
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
-                b.ToTable("Blogs");
-            });
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
 
-            modelBuilder.Entity("Be.BlogManagementAssignment.Domain.Entities.BlogCategory", b =>
-            {
-                b.Property<Guid>("BlogId")
-                    .HasColumnType("uuid");
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
 
-                b.Property<int>("CategoryId")
-                    .HasColumnType("integer");
+                    b.HasKey("Id");
 
-                b.HasKey("BlogId", "CategoryId");
+                    b.HasIndex("AuthorId");
 
-                b.HasIndex("CategoryId")
-                    .HasDatabaseName("IX_BlogCategories_CategoryId");
+                    b.HasIndex("Slug")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Blogs_Slug");
 
-                b.ToTable("BlogCategories");
-            });
-
-            modelBuilder.Entity("Be.BlogManagementAssignment.Domain.Entities.Category", b =>
-            {
-                b.Property<int>("Id")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("integer");
-
-                NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                b.Property<DateTime>("CreatedAt")
-                    .HasColumnType("timestamp with time zone");
-
-                b.Property<string>("Description")
-                    .HasMaxLength(500)
-                    .HasColumnType("character varying(500)");
-
-                b.Property<bool>("IsActive")
-                    .HasDefaultValue(true)
-                    .HasColumnType("boolean");
-
-                b.Property<string>("Name")
-                    .IsRequired()
-                    .HasMaxLength(100)
-                    .HasColumnType("character varying(100)");
-
-                b.Property<string>("Slug")
-                    .IsRequired()
-                    .HasMaxLength(150)
-                    .HasColumnType("character varying(150)");
-
-                b.Property<DateTime?>("UpdatedAt")
-                    .HasColumnType("timestamp with time zone");
-
-                b.HasKey("Id");
-
-                b.HasIndex("Slug")
-                    .IsUnique()
-                    .HasDatabaseName("IX_Categories_Slug");
-
-                b.ToTable("Categories");
-            });
-
-            modelBuilder.Entity("Be.BlogManagementAssignment.Domain.Entities.User", b =>
-            {
-                b.Property<Guid>("Id")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("uuid");
-
-                b.Property<DateTime>("CreatedAt")
-                    .HasColumnType("timestamp with time zone");
-
-                b.Property<string>("Email")
-                    .IsRequired()
-                    .HasColumnType("text");
-
-                b.Property<string>("FirstName")
-                    .IsRequired()
-                    .HasColumnType("text");
-
-                b.Property<bool>("IsVerified")
-                    .HasColumnType("boolean");
-
-                b.Property<string>("LastName")
-                    .HasColumnType("text");
-
-                b.Property<string>("PasswordHash")
-                    .IsRequired()
-                    .HasColumnType("text");
-
-                b.Property<string>("ResetPasswordToken")
-                    .HasColumnType("text");
-
-                b.Property<DateTime?>("ResetPasswordExpiry")
-                    .HasColumnType("timestamp with time zone");
-
-                b.Property<int>("Role")
-                    .HasColumnType("integer");
-
-                b.Property<int>("Status")
-                    .HasColumnType("integer");
-
-                b.Property<DateTime?>("UpdatedAt")
-                    .HasColumnType("timestamp with time zone");
-
-                b.Property<string>("VerificationToken")
-                    .HasColumnType("text");
-
-                b.HasKey("Id");
-
-                b.ToTable("Users");
-            });
-
-            modelBuilder.Entity("Be.BlogManagementAssignment.Domain.Entities.Blog", b =>
-            {
-                b.HasOne("Be.BlogManagementAssignment.Domain.Entities.User", "Author")
-                    .WithMany("Blogs")
-                    .HasForeignKey("AuthorId")
-                    .OnDelete(DeleteBehavior.Restrict)
-                    .IsRequired();
-
-                b.Navigation("Author");
-            });
+                    b.ToTable("Blogs");
+                });
 
             modelBuilder.Entity("Be.BlogManagementAssignment.Domain.Entities.BlogCategory", b =>
-            {
-                b.HasOne("Be.BlogManagementAssignment.Domain.Entities.Blog", "Blog")
-                    .WithMany("BlogCategories")
-                    .HasForeignKey("BlogId")
-                    .OnDelete(DeleteBehavior.Cascade)
-                    .IsRequired();
+                {
+                    b.Property<Guid>("BlogId")
+                        .HasColumnType("uuid");
 
-                b.HasOne("Be.BlogManagementAssignment.Domain.Entities.Category", "Category")
-                    .WithMany("BlogCategories")
-                    .HasForeignKey("CategoryId")
-                    .OnDelete(DeleteBehavior.Restrict)
-                    .IsRequired();
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("integer");
 
-                b.Navigation("Blog");
-                b.Navigation("Category");
-            });
+                    b.HasKey("BlogId", "CategoryId");
 
-            modelBuilder.Entity("Be.BlogManagementAssignment.Domain.Entities.Blog", b =>
-            {
-                b.Navigation("BlogCategories");
-            });
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("IX_BlogCategories_CategoryId");
+
+                    b.ToTable("BlogCategories");
+                });
 
             modelBuilder.Entity("Be.BlogManagementAssignment.Domain.Entities.Category", b =>
-            {
-                b.Navigation("BlogCategories");
-            });
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Categories_Slug");
+
+                    b.ToTable("Categories");
+                });
 
             modelBuilder.Entity("Be.BlogManagementAssignment.Domain.Entities.User", b =>
-            {
-                b.Navigation("Blogs");
-            });
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LastName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ResetPasswordExpiry")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ResetPasswordToken")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("VerificationToken")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("Be.BlogManagementAssignment.Domain.Entities.Blog", b =>
+                {
+                    b.HasOne("Be.BlogManagementAssignment.Domain.Entities.User", "Author")
+                        .WithMany("Blogs")
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+                });
+
+            modelBuilder.Entity("Be.BlogManagementAssignment.Domain.Entities.BlogCategory", b =>
+                {
+                    b.HasOne("Be.BlogManagementAssignment.Domain.Entities.Blog", "Blog")
+                        .WithMany("BlogCategories")
+                        .HasForeignKey("BlogId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Be.BlogManagementAssignment.Domain.Entities.Category", "Category")
+                        .WithMany("BlogCategories")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Blog");
+
+                    b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("Be.BlogManagementAssignment.Domain.Entities.Blog", b =>
+                {
+                    b.Navigation("BlogCategories");
+                });
+
+            modelBuilder.Entity("Be.BlogManagementAssignment.Domain.Entities.Category", b =>
+                {
+                    b.Navigation("BlogCategories");
+                });
+
+            modelBuilder.Entity("Be.BlogManagementAssignment.Domain.Entities.User", b =>
+                {
+                    b.Navigation("Blogs");
+                });
 #pragma warning restore 612, 618
         }
     }

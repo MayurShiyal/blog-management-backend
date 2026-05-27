@@ -5,10 +5,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Be.BlogManagementAssignment.Infrastructure.Implementations.Repositories;
 
-/// <summary>
-/// EF Core implementation of <see cref="IUserRepository"/>.
-/// Handles all user roles (Admin, Author, Visitor) in a single repository.
-/// </summary>
 public sealed class UserRepository : IUserRepository
 {
     private readonly ApplicationDbContext _context;
@@ -21,7 +17,7 @@ public sealed class UserRepository : IUserRepository
     /// <inheritdoc />
     public Task<bool> ExistsAsync(string email, CancellationToken cancellationToken = default)
         => _context.Users
-            .AnyAsync(u => u.Email == email.ToLowerInvariant(), cancellationToken);
+            .AnyAsync(u => u.Email == email.ToLowerInvariant() && !u.IsDeleted, cancellationToken);
 
     /// <inheritdoc />
     public async Task<User> CreateAsync(User user, CancellationToken cancellationToken = default)
@@ -34,17 +30,19 @@ public sealed class UserRepository : IUserRepository
     /// <inheritdoc />
     public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
         => _context.Users
-            .FirstOrDefaultAsync(u => u.Email == email.ToLowerInvariant(), cancellationToken);
+            .FirstOrDefaultAsync(
+                u => u.Email == email.ToLowerInvariant() && !u.IsDeleted,
+                cancellationToken);
 
     /// <inheritdoc />
     public Task<User?> GetByVerificationTokenAsync(string token, CancellationToken cancellationToken = default)
         => _context.Users
-            .FirstOrDefaultAsync(u => u.VerificationToken == token, cancellationToken);
+            .FirstOrDefaultAsync(u => u.VerificationToken == token && !u.IsDeleted, cancellationToken);
 
     /// <inheritdoc />
     public Task<User?> GetByResetPasswordTokenAsync(string token, CancellationToken cancellationToken = default)
         => _context.Users
-            .FirstOrDefaultAsync(u => u.ResetPasswordToken == token, cancellationToken);
+            .FirstOrDefaultAsync(u => u.ResetPasswordToken == token && !u.IsDeleted, cancellationToken);
 
     /// <inheritdoc />
     public async Task UpdateAsync(User user, CancellationToken cancellationToken = default)
